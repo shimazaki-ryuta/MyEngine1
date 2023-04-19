@@ -103,7 +103,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	assert(SUCCEEDED(hr));
 
 	//コマンドリストの生成
-	ID3D12CommandList* commandList = nullptr;
+	ID3D12GraphicsCommandList* commandList = nullptr;
 	hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,commandArocator, nullptr,IID_PPV_ARGS(&commandList));
 	//コマンドリストの生成に失敗
 	assert(SUCCEEDED(hr));
@@ -154,6 +154,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	rtvHandles[1].ptr = rtvHandles[0].ptr + device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	device->CreateRenderTargetView(swapChainResources[1],&rtvDesc,rtvHandles[1]);
 
+
 	MSG msg{};
 	//メインループ
 	while (msg.message != WM_QUIT)
@@ -166,6 +167,25 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		else
 		{
 			//処理
+			//画面の初期化
+			//コマンドの確定
+			UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
+			commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], false, nullptr);
+			float clearColor[] = {0.1f,0.25f,0.5f,1.0f};//RGBA
+			commandList->ClearRenderTargetView(rtvHandles[backBufferIndex],clearColor,0,nullptr);
+			//コマンドの確定(最後にやる)
+			hr = commandList->Close();
+			assert(SUCCEEDED(hr));
+
+			//コマンドリストの実行
+			ID3D12CommandList* commandLists[] = {commandList};
+			commandQueue->ExecuteCommandLists(1,commandLists);
+			swapChain->Present(1,0);
+			hr = commandArocator->Reset();
+			assert(SUCCEEDED(hr));
+			hr = commandList->Reset(commandArocator,nullptr);
+			assert(SUCCEEDED(hr));
+
 		}
 	}
 
