@@ -93,10 +93,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MatrixFunction.cpp" />
     <ClCompile Include="WIndowProcedure.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ConvertString.h" />
+    <ClInclude Include="Matrix.h" />
+    <ClInclude Include="MatrixFunction.h" />
+    <ClInclude Include="Vector3.h" />
     <ClInclude Include="WindowProcedure.h" />
   </ItemGroup>
   <ItemGroup>

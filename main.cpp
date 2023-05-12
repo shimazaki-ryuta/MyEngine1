@@ -14,6 +14,9 @@
 //Shader関係
 #include <dxcapi.h>
 
+//自作関数
+#include "Matrix.h"
+#include "MatrixFunction.h"
 
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
@@ -27,6 +30,13 @@ struct Vector4
 {
 	float x, y, z, w;
 };
+
+struct Transform
+{
+	Vector3 scale;
+	Vector3 rotate;
+	Vector3 translate;
+} ;
 
 void Log(const std::string& message)
 {
@@ -96,7 +106,7 @@ ID3D12Resource* CreateBufferResource(ID3D12Device* device, size_t sizeInBytes)
 	D3D12_RESOURCE_DESC resourceDesc{};
 	//バッファリソース。テクスチャの場合は別の設定をする
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	resourceDesc.Width = sizeof(Vector4) * 3;
+	resourceDesc.Width = sizeInBytes;
 	resourceDesc.Height = 1;
 	resourceDesc.DepthOrArraySize = 1;
 	resourceDesc.MipLevels = 1;
@@ -305,11 +315,16 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
 	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	
-	//RootParameter
-	D3D12_ROOT_PARAMETER rootParameters[1] = {};
+	//RootParameter作成
+	D3D12_ROOT_PARAMETER rootParameters[2] = {};
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[0].Descriptor.ShaderRegister = 0;
+
+	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameters[1].Descriptor.ShaderRegister = 0;
+
 	descriptionRootSignature.pParameters = rootParameters;
 	descriptionRootSignature.NumParameters = _countof(rootParameters);
 	
@@ -412,6 +427,12 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	materialResource->Map(0,nullptr,reinterpret_cast<void**>(&materialData));
 	*materialData = Vector4(1.0f,0.0f,0.0f,1.0f);
 
+	//WVP用のリソースを作る。Matrix4x4一つ分のサイズを用意
+	ID3D12Resource* wvpResource = CreateBufferResource(device,sizeof(Matrix4x4));
+	Matrix4x4* wvpData = nullptr;
+	wvpResource->Map(0,nullptr,reinterpret_cast<void**>(&wvpData));
+	*wvpData = MakeIdentity4x4();
+
 
 	//ビューポート
 	D3D12_VIEWPORT viewport{};
@@ -430,6 +451,14 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	scissorRect.top = 0;
 	scissorRect.bottom = kClientHeight;
 
+
+	//Transform変数を作る
+	struct Transform transform{ {1.0f,1.0f,1.0f},{0.0f,0.0f,0.0f},{0.0f,0.0f,0.0f} };
+
+	struct Transform cameraTransform { {1.0f, 1.0f, 1.0f}, { 0.0f,0.0f,0.0f }, {0.0f,0.0f,-5.0f} };
+
+	Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f,float(kClientWidth)/float(kClientHeight),0.1f,100.0f);
+
 	MSG msg{};
 	//メインループ
 	while (msg.message != WM_QUIT)
@@ -441,7 +470,17 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		}
 		else
 		{
-			//処理
+			//ゲームの処理
+
+			transform.rotate.y += 0.03f;
+			Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale,transform.rotate,transform.translate);
+			Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform.scale,cameraTransform.rotate,cameraTransform.translate);
+			Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+			//Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f,float(kClientWidth)/float(kClientHeight),0.1f,100.0f);
+			Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix,Multiply(viewMatrix,projectionMatrix));
+			//*wvpData = worldMatrix;
+			*wvpData = worldViewProjectionMatrix;
+
 			//画面の初期化
 			//コマンドの確定
 			UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
@@ -472,6 +511,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			//マテリアルCBufferの場所を設定
 			commandList->SetGraphicsRootConstantBufferView(0,materialResource->GetGPUVirtualAddress());
+			//wvp用のCBufferの場所を設定
+			commandList->SetGraphicsRootConstantBufferView(1,wvpResource->GetGPUVirtualAddress());
+
 
 			//描画
 			commandList->DrawInstanced(3,1,0,0);
@@ -544,6 +586,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	materialResource->Release();
 
+	wvpResource->Release();
 
 	//リソースリークチェック
 	IDXGIDebug1* debug;
