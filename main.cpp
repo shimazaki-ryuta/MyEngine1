@@ -11,6 +11,8 @@
 #include <cassert>
 #include <dxgidebug.h>
 
+#include "externals/DirectXTex/DirectXTex.h"
+
 //Shader関係
 #include <dxcapi.h>
 
@@ -151,6 +153,20 @@ ID3D12DescriptorHeap* CreateDescriptorHeap(ID3D12Device* device,D3D12_DESCRIPTOR
 	HRESULT hr = device->CreateDescriptorHeap(&descriptorHeapDesc,IID_PPV_ARGS(&descreptorHeap));
 	assert(SUCCEEDED(hr));
 	return descreptorHeap;
+}
+
+DirectX::ScratchImage LoadTexture(const std::string& filePath)
+{
+	DirectX::ScratchImage image{};
+	std::wstring filePathW = ConvertString(filePath);
+	HRESULT hr = DirectX::LoadFromWICFile(filePathW.c_str(),DirectX::WIC_FLAGS_FORCE_SRGB,nullptr,image);
+	assert(SUCCEEDED(hr));
+	
+	DirectX::ScratchImage mipImages{};
+	hr = DirectX::GenerateMipMaps(image.GetImages(),image.GetImageCount(),image.GetMetadata(),DirectX::TEX_FILTER_SRGB,0,mipImages);
+	assert(SUCCEEDED(hr));
+
+	return mipImages;
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
