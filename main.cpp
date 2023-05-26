@@ -621,7 +621,40 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	//DSVHeapの先頭にDSVを作る
 	device->CreateDepthStencilView(depthStencilResource,&dsvDesc,dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
+	//Sprite用のリソースを作る
+	ID3D12Resource* vertexResourceSprite = CreateBufferResource(device,sizeof(VertexData)*6);
+	//頂点バッファビューを作る
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSprite{};
+	vertexBufferViewSprite.BufferLocation = vertexResourceSprite->GetGPUVirtualAddress();
+	//使用するリソースのサイズ
+	vertexBufferViewSprite.SizeInBytes = sizeof(VertexData) * 6;
+	//1頂点当たりのサイズ
+	vertexBufferViewSprite.StrideInBytes = sizeof(VertexData);
+	
+	VertexData* vertexDataSprite = nullptr;
+	vertexResourceSprite->Map(0,nullptr,reinterpret_cast<void**>(&vertexDataSprite));
+	//1枚目
+	vertexDataSprite[0].position = {0.0f,360.0f,0.0f,1.0f};
+	vertexDataSprite[0].texcoord = {0.0f,1.0f};
+	vertexDataSprite[1].position = { 0.0f,0.0f,0.0f,1.0f };
+	vertexDataSprite[1].texcoord = { 0.0f,0.0f };
+	vertexDataSprite[2].position = { 640.0f,360.0f,0.0f,1.0f };
+	vertexDataSprite[2].texcoord = { 1.0f,1.0f };
+	//2枚目
+	vertexDataSprite[3].position = { 0.0f,0.0f,0.0f,1.0f };
+	vertexDataSprite[3].texcoord = { 0.0f,0.0f };
+	vertexDataSprite[4].position = { 640.0f,0.0f,0.0f,1.0f };
+	vertexDataSprite[4].texcoord = { 1.0f,0.0f };
+	vertexDataSprite[5].position = { 640.0f,360.0f,0.0f,1.0f };
+	vertexDataSprite[5].texcoord = { 1.0f,1.0f };
+	
+	//Sprite用のTransformMatrix用リソースを作る
+	ID3D12Resource* transformationMatrixResourceSprite = CreateBufferResource(device,sizeof(Matrix4x4));
+	Matrix4x4* transformationMatrixDataSprite = nullptr;
+	transformationMatrixResourceSprite->Map(0,nullptr,reinterpret_cast<void**>(&transformationMatrixDataSprite));
+	*transformationMatrixDataSprite = MakeIdentity4x4();
 
+	struct Transform transformSprite { {1.0f,1.0f,1.0f}, {0.0f,0.0f,0.0f}, {0.0f,0.0f,0.0f} };
 
 	//ビューポート
 	D3D12_VIEWPORT viewport{};
@@ -724,9 +757,14 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 			//ImGui::ShowDemoWindow();
 
-			ImGui::Begin("color");
-			ImGui::SliderFloat3("RGB",&materialData->x,0.0f,1.0f);
+			//ImGui::Begin("color");
+			//ImGui::SliderFloat3("RGB",&materialData->x,0.0f,1.0f);
+			//ImGui::End();
+			ImGui::Begin("Window");
+			//ImGui::DragFloat3("CameraTranslate",&cameraTranslate.x,0.01f);
+			ImGui::DragFloat3("translateSprite", &transformSprite.translate.x, 1.0f);
 			ImGui::End();
+
 
 			transform.rotate.y += 0.01f;
 			Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale,transform.rotate,transform.translate);
@@ -736,6 +774,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix,Multiply(viewMatrix,projectionMatrix));
 			//*wvpData = worldMatrix;
 			*wvpData = worldViewProjectionMatrix;
+
+			//Sprite用のworldviewProjection
+			Matrix4x4 worldMatrixSprite = MakeAffineMatrix(transformSprite.scale,transformSprite.rotate,transformSprite.translate);
+			Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
+			Matrix4x4 projectionMatrixSprite = MakeOrthographicMatrix(0.0f,0.0f,float(kClientWidth),float(kClientHeight),0.0f,100.0f);
+			Matrix4x4 worldViewProjectionMatrixSprite = Multiply(worldMatrixSprite,Multiply(viewMatrixSprite,projectionMatrixSprite));
+			*transformationMatrixDataSprite = worldViewProjectionMatrixSprite;
 
 			//更新処理終了
 			 
@@ -785,6 +830,11 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			//指定した深度で画面全体をクリアする
 			commandList->ClearDepthStencilView(dsvHandle,D3D12_CLEAR_FLAG_DEPTH,1.0f,0,0,nullptr);
 			//描画
+			commandList->DrawInstanced(6,1,0,0);
+
+			//Spriteの描画
+			commandList->IASetVertexBuffers(0,1,&vertexBufferViewSprite);
+			commandList->SetGraphicsRootConstantBufferView(1,transformationMatrixResourceSprite->GetGPUVirtualAddress());
 			commandList->DrawInstanced(6,1,0,0);
 
 			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),commandList);
@@ -869,6 +919,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	textureResource->Release();
 
 	depthStencilResource->Release();
+
+	vertexResourceSprite->Release();
+	transformationMatrixResourceSprite->Release();
 
 	//リソースリークチェック
 	IDXGIDebug1* debug;

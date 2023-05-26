@@ -4,7 +4,6 @@
 #include <math.h>
 #include <assert.h>
 #include <cmath>
-
 /*
 
 Matrix4x4 Add(Matrix4x4 matrix1, Matrix4x4 matrix2);
