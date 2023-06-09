@@ -1,4 +1,6 @@
 #include <Windows.h>
+#define _USE_MATH_DEFINES
+#include <math.h>
 //#include "WindowProcedure.h"
 #include <cstdint>
 #include <string>
@@ -571,32 +573,58 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc,IID_PPV_ARGS(&graphicsPipelineState));
 	assert(SUCCEEDED(hr));
 
-	
+	const uint32_t kSubdivision = 16;
+	const uint32_t vertexCount = kSubdivision * kSubdivision * 6;
+
 	//頂点リソース
-	ID3D12Resource* vertexResourse = CreateBufferResource(device,sizeof(VertexData)*6);
+	ID3D12Resource* vertexResourse = CreateBufferResource(device,sizeof(VertexData)*vertexCount);
 
 	//頂点バッファ
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
 	vertexBufferView.BufferLocation = vertexResourse->GetGPUVirtualAddress();
-	vertexBufferView.SizeInBytes = sizeof(VertexData)*6;
+	vertexBufferView.SizeInBytes = sizeof(VertexData)* vertexCount;
 	vertexBufferView.StrideInBytes = sizeof(VertexData);
+
+
 
 	VertexData* vertexData = nullptr;
 	vertexResourse->Map(0,nullptr,reinterpret_cast<void**>(&vertexData));
-	vertexData[0].position = {-0.5f,-0.5f,0.0f,1.0f};
-	vertexData[0].texcoord = {0.0f,1.0f};
-	vertexData[1].position = {0.0f,0.5f,0.0f,1.0f};
-	vertexData[1].texcoord = { 0.5f,0.0f };
-	vertexData[2].position = {0.5f,-0.5f,0.0f,1.0f};
-	vertexData[2].texcoord = { 1.0f,1.0f };
-	//2
-	vertexData[3].position = { -0.5f,-0.5f,0.5f,1.0f };
-	vertexData[3].texcoord = { 0.0f,1.0f };
-	vertexData[4].position = { 0.0f,0.0f,0.0f,1.0f };
-	vertexData[4].texcoord = { 0.5f,0.0f };
-	vertexData[5].position = { 0.5f,-0.5f,-0.5f,1.0f };
-	vertexData[5].texcoord = { 1.0f,1.0f };
+	
+	const float kLonEvery = float(M_PI) * 2.0f / float(kSubdivision);
+	const float kLatEvery = float(M_PI) / float(kSubdivision);
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex)
+	{
+		float lat = -float(M_PI) / 2.0f + kLatEvery * latIndex;
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex)
+		{
+			float u = float(lonIndex) / float(kSubdivision);
+			float v =1.0f - float(latIndex) / float(kSubdivision);
 
+			uint32_t start = (latIndex * kSubdivision + lonIndex) * 6;
+			float lon = lonIndex * kLonEvery;
+			Vector4 a, b, c, d;
+			a = { cosf(lat) * cosf(lon)			  ,sinf(lat)            ,cosf(lat) * sin(lon),1.0f };
+			b = { cosf(lat + kLatEvery) * cosf(lon),sinf(lat + kLatEvery),cosf(lat + kLatEvery) * sin(lon),1.0f };
+			c = { cosf(lat) * cosf(lon + kLonEvery),sinf(lat)            , cosf(lat) * sin(lon + kLonEvery),1.0f };
+			d = { cosf(lat + kLatEvery) * cosf(lon + kLonEvery),sinf(lat + kLatEvery),cosf(lat + kLatEvery) * sin(lon + kLonEvery),1.0f };
+			//1枚目
+			vertexData[start].position = a;
+			vertexData[start].texcoord = {u,v + 1.0f / float(kSubdivision) };
+			vertexData[start + 1].position = b;
+			vertexData[start + 1].texcoord = { u,v };
+			vertexData[start + 2].position = c;
+			vertexData[start + 2].texcoord = { u + 1.0f / float(kSubdivision), v + 1.0f / float(kSubdivision) };
+			//2枚目
+			vertexData[start + 3].position = b;
+			vertexData[start + 3].texcoord = { u,v };
+			vertexData[start + 4].position = d;
+			vertexData[start + 4].texcoord = { u + 1.0f / float(kSubdivision),v };
+			vertexData[start + 5].position = c;
+			vertexData[start + 5].texcoord = { u + 1.0f / float(kSubdivision),v + 1.0f / float(kSubdivision) };
+
+
+		}
+	}
 	//マテリアル用のリソースを作成
 	ID3D12Resource* materialResource = CreateBufferResource(device,sizeof(Vector4));
 	Vector4* materialData = nullptr;
@@ -760,11 +788,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			//ImGui::Begin("color");
 			//ImGui::SliderFloat3("RGB",&materialData->x,0.0f,1.0f);
 			//ImGui::End();
-			ImGui::Begin("Window");
-			//ImGui::DragFloat3("CameraTranslate",&cameraTranslate.x,0.01f);
+			/*ImGui::Begin("Window");
 			ImGui::DragFloat3("translateSprite", &transformSprite.translate.x, 1.0f);
-			ImGui::End();
+			ImGui::End();*/
 
+			ImGui::Begin("Camera");
+			ImGui::SliderFloat3("CameraTranslate", &cameraTransform.translate.x, -10.0f, 10.0f,0 );
+			ImGui::End();
 
 			transform.rotate.y += 0.01f;
 			Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale,transform.rotate,transform.translate);
@@ -830,7 +860,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			//指定した深度で画面全体をクリアする
 			commandList->ClearDepthStencilView(dsvHandle,D3D12_CLEAR_FLAG_DEPTH,1.0f,0,0,nullptr);
 			//描画
-			commandList->DrawInstanced(6,1,0,0);
+			commandList->DrawInstanced(vertexCount,1,0,0);
 
 			//Spriteの描画
 			commandList->IASetVertexBuffers(0,1,&vertexBufferViewSprite);
