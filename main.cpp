@@ -8,6 +8,9 @@
 #include <vector>
 #include"ConvertString.h"
 
+//window関係
+#include "CommonFiles/WinApp.h"
+
 //directx12関係
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -39,23 +42,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd,UINT msg,
 
 const int32_t kClientWidth = 1280;
 const int32_t kClientHeight = 720;
-
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
-{
-	if (ImGui_ImplWin32_WndProcHandler(hwnd,msg,wparam,lparam))
-	{
-		return true;
-	}
-	switch (msg)
-	{
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0;
-	}
-
-	return DefWindowProc(hwnd, msg, wparam, lparam);
-}
-
+const std::string kTitle = "CG2";
 
 struct Vector4
 {
@@ -293,29 +280,10 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	
 	CoInitializeEx(0,COINIT_MULTITHREADED);
 
-	WNDCLASS wc{};
-	wc.lpfnWndProc = WindowProc;
-	wc.lpszClassName = L"CG2WindowClass";
-	wc.hInstance = GetModuleHandle(nullptr);
-	wc.hCursor = LoadCursor(nullptr,IDC_ARROW);
-	RegisterClass(&wc);
+	Window* mainWindow=nullptr;
+	mainWindow = new Window();
+	mainWindow->CreateGameWindow(kTitle,kClientWidth,kClientHeight);
 
-	RECT wrc = {0,0,kClientWidth,kClientHeight};
-	AdjustWindowRect(&wrc,WS_OVERLAPPEDWINDOW,false);
-
-	HWND hwnd = CreateWindow(wc.lpszClassName,
-		L"CG2",
-		WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		wrc.right-wrc.left,
-		wrc.bottom-wrc.top,
-		nullptr,
-		nullptr,
-		wc.hInstance,
-		nullptr);
-	//ウィンドウを表示
-	ShowWindow(hwnd,SW_SHOW);
 
 #ifdef _DEBUG
 	ID3D12Debug1* debugController = nullptr;
@@ -423,7 +391,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.BufferCount = 2;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	hr = dxgiFactory->CreateSwapChainForHwnd(commandQueue, hwnd, &swapChainDesc, nullptr,nullptr,reinterpret_cast<IDXGISwapChain1**>(&swapChain));
+	hr = dxgiFactory->CreateSwapChainForHwnd(commandQueue, mainWindow->GetHwnd(), &swapChainDesc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(&swapChain));
 	assert(SUCCEEDED(hr));
 
 
@@ -790,7 +758,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
-	ImGui_ImplWin32_Init(hwnd);
+	ImGui_ImplWin32_Init(mainWindow->GetHwnd());
 	ImGui_ImplDX12_Init(device,swapChainDesc.BufferCount,rtvDesc.Format,srvDescriptorHeap,
 		srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
@@ -1040,7 +1008,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 #ifdef _DEBUG
 	debugController->Release();
 #endif // _DEBUG
-	CloseWindow(hwnd);
+	CloseWindow(mainWindow->GetHwnd());
 
 	directinalLightResource->Release();
 

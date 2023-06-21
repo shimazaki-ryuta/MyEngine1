@@ -16,6 +16,9 @@
     <Filter Include="imgui">
       <UniqueIdentifier>{83cd6226-edd3-4323-b4d4-2d7549d7a2a5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="CommonFiles">
+      <UniqueIdentifier>{66f8b25c-5e32-43e3-a6e6-86fd8472e476}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -50,6 +53,15 @@
     </ClCompile>
     <ClCompile Include="VectorFunction.cpp">
       <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="CommonFiles\WinApp.cpp">
+      <Filter>CommonFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="ConvertString.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="CommonFiles\DirectXCommon.cpp">
+      <Filter>CommonFiles</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -94,6 +106,12 @@
     </ClInclude>
     <ClInclude Include="VectorFunction.h">
       <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="CommonFiles\WinApp.h">
+      <Filter>CommonFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="CommonFiles\DirectXCommon.h">
+      <Filter>CommonFiles</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
