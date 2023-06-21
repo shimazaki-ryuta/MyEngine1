@@ -23,6 +23,7 @@
 //自作関数
 #include "Matrix.h"
 #include "MatrixFunction.h"
+#include "VectorFunction.h"
 
 //ImGui
 #include "externals/imgui/imgui.h"
@@ -55,10 +56,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-struct Vector2
-{
-	float x, y;
-};
 
 struct Vector4
 {
@@ -895,11 +892,11 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			ImGui::Begin("Window");
 			ImGui::SliderFloat3("CameraTranslate", &cameraTransform.translate.x, -10.0f, 10.0f,0 );
 			ImGui::Checkbox("useMonsterBall", &useMonsterBall);
-			ImGui::SliderFloat3("DirectionalLight", &directinalLightData->direction.x, -10.0f, 10.0f, 0);
+			ImGui::SliderFloat3("DirectionalLight", &directinalLightData->direction.x, -1.0f, 1.0f, 0);
 			//ImGui::SliderFloat3("DirectionalLightColor", &directinalLightData->color.x, 0.0f, 1.0f, 0);
 			ImGui::ColorEdit4("DirectionalLightColor" ,&directinalLightData->color.x);
 			ImGui::End();
-
+			directinalLightData->direction = Nomalize(directinalLightData->direction);
 
 
 			transform.rotate.y += 0.01f;
