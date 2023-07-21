@@ -28,8 +28,12 @@ public:
 	/// </summary>
 	inline HWND GetHwnd() { return hwnd_; };
 
+	inline int32_t GetClientWidth() { return kClientWidth_; };
+	inline int32_t GetClientHeight() { return kClientHeight_; };
+
 private:
 	WNDCLASS wc_{};
 	HWND hwnd_;
+	int32_t kClientWidth_,kClientHeight_;
 
 };

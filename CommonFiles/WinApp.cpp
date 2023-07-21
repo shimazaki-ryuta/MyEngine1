@@ -22,6 +22,9 @@ LRESULT CALLBACK Window::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 
 void Window::CreateGameWindow(const std::string& title, int32_t kClientWidth, int32_t kClientHeight)
 {
+	kClientWidth_ = kClientWidth;
+	kClientHeight_ =  kClientHeight;
+
 	wc_.lpfnWndProc = WindowProc;
 	wc_.lpszClassName = L"CG2WindowClass";
 	wc_.hInstance = GetModuleHandle(nullptr);
