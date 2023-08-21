@@ -123,6 +123,24 @@ void DirectXCommon::PreDraw()
 	//指定した深度で画面全体をクリアする
 	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
+	//ビューポート
+	D3D12_VIEWPORT viewport{};
+	viewport.Width = FLOAT(win_->GetClientWidth());
+	viewport.Height = FLOAT(win_->GetClientHeight());
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+
+
+	//シザー矩形
+	D3D12_RECT scissorRect{};
+	scissorRect.left = 0;
+	scissorRect.right = LONG(win_->GetClientWidth());
+	scissorRect.top = 0;
+	scissorRect.bottom = LONG(win_->GetClientHeight());
+	commandList_->RSSetViewports(1, &viewport);
+	commandList_->RSSetScissorRects(1, &scissorRect);
 
 	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap_ };
 	commandList_->SetDescriptorHeaps(1, descriptorHeaps);
@@ -214,7 +232,7 @@ void DirectXCommon::InitializeDXGIDevice()
 	{
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
-		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
+		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, false);
 		infoQueue->Release();
 
 		D3D12_MESSAGE_ID denyIds[] = {
@@ -357,7 +375,7 @@ void DirectXCommon::InitializeImGui()
 	hr = commandList_->Reset(commandAllocator_, nullptr);
 	assert(SUCCEEDED(hr));
 }
-
+/*
 DirectX::ScratchImage InputTexture(const std::string& filePath)
 {
 	DirectX::ScratchImage image{};
@@ -371,7 +389,7 @@ DirectX::ScratchImage InputTexture(const std::string& filePath)
 
 	return mipImages;
 }
-
+*/
 ID3D12Resource* DirectXCommon::CreateTextureResource(ID3D12Device* device, const DirectX::TexMetadata& metadata)
 {
 	//metadataをもとにのResourceの設定
@@ -416,12 +434,13 @@ ID3D12Resource* DirectXCommon::CreateBufferResource(ID3D12Device* device, size_t
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	//リソースを作る
 	ID3D12Resource* resourse = nullptr;
-	assert(SUCCEEDED(device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&resourse))));
+	HRESULT hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&resourse));
+	assert(SUCCEEDED(hr));
 	return resourse;
 }
 
 [[nodiscard]]
-ID3D12Resource* UploadTextureData(ID3D12Resource* texture, const DirectX::ScratchImage& mipImages, ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+ID3D12Resource* CreateIntermadiateResource(ID3D12Resource* texture, const DirectX::ScratchImage& mipImages, ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
 	std::vector<D3D12_SUBRESOURCE_DATA> subresource;
 	DirectX::PrepareUpload(device, mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresource);
@@ -439,23 +458,51 @@ ID3D12Resource* UploadTextureData(ID3D12Resource* texture, const DirectX::Scratc
 	return intermediateResource;
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index)
+void  DirectXCommon::UploadTextureData(ID3D12Resource* texture, const DirectX::ScratchImage& mipImages)
+{
+	ID3D12Resource* intermediateResource = CreateIntermadiateResource(texture, mipImages, device_, commandList_);
+
+	//コマンドリストの実行
+	ID3D12CommandList* commandLists[] = { commandList_ };
+	commandList_->Close();
+	commandQueue_->ExecuteCommandLists(1, commandLists);
+
+	//Fenceの値をこうしん
+	fenceValue_++;
+	commandQueue_->Signal(fence_, fenceValue_);
+
+	//Fenceの値が指定したSignal値にたどり着いているか確認
+	if (fence_->GetCompletedValue() < fenceValue_)
+	{
+		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+		//イベント待つ
+		WaitForSingleObject(fenceEvent_, INFINITE);
+	}
+
+	HRESULT hr = commandAllocator_->Reset();
+	assert(SUCCEEDED(hr));
+	hr = commandList_->Reset(commandAllocator_, nullptr);
+	assert(SUCCEEDED(hr));
+	intermediateResource->Release();
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE DirectXCommon::GetCPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index)
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE handleCPU = descriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	handleCPU.ptr += (descriptorSize * index);
 	return handleCPU;
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index)
+D3D12_GPU_DESCRIPTOR_HANDLE DirectXCommon::GetGPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index)
 {
 	D3D12_GPU_DESCRIPTOR_HANDLE handleGPU = descriptorHeap->GetGPUDescriptorHandleForHeapStart();
 	handleGPU.ptr += (descriptorSize * index);
 	return handleGPU;
 }
-
+/*
 int32_t DirectXCommon::LoadTexture(const std::string& filePath)
 {
-	
+
 	DirectX::ScratchImage* mipImages = new DirectX::ScratchImage();
 	*mipImages = InputTexture("Resources/uvChecker.png");
 	const DirectX::TexMetadata& metadata = mipImages->GetMetadata();
@@ -508,3 +555,4 @@ int32_t DirectXCommon::LoadTexture(const std::string& filePath)
 	return textureCount_++;
 	
 }
+*/

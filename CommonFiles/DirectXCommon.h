@@ -32,10 +32,15 @@ public:
 	/// </summary>
 	void PostDraw();
 
-	int32_t LoadTexture(const std::string& filePath);
+	//int32_t LoadTexture(const std::string& filePath);
+
+	//画像データをGPUに送信する
+	void  UploadTextureData(ID3D12Resource* texture, const DirectX::ScratchImage& mipImages);
 
 	inline ID3D12Device* GetDevice() { return device_; };
 	inline ID3D12GraphicsCommandList* GetCommandList() { return commandList_; };
+	inline ID3D12CommandQueue* GetCommandQueue() { return commandQueue_; };
+	inline ID3D12CommandAllocator* GetCommandAllocator() { return commandAllocator_; };
 	inline void SetDescriptorSizeSRV(uint32_t descriptorSizeSRV) { descriptorSizeSRV_ = descriptorSizeSRV; };
 	inline void SetDescriptorSizeRTV(uint32_t descriptorSizeRTV) { descriptorSizeRTV_ = descriptorSizeRTV; };
 	inline void SetDescriptorSizeDSV(uint32_t descriptorSizeDSV) { descriptorSizeDSV_ = descriptorSizeDSV; };
@@ -45,6 +50,15 @@ public:
 
 	//仮
 	inline ID3D12DescriptorHeap* GetsrvDescriptorHeap() { return srvDescriptorHeap_; };
+
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index);
+	D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index);
+
+
+
+
+	// デスクリプターの数
+	static const size_t kNumSrvDescriptors = 256;
 
 private:
 	Window* win_=nullptr;

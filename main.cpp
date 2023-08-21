@@ -1,3 +1,6 @@
+
+#include "D3DResourceLeakChacker.h"
+//static D3DResourceLeakChacker* leacCheck = D3DResourceLeakChacker::GetInstance();
 #include <Windows.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -17,6 +20,7 @@
 #include <dxgi1_6.h>
 #include <cassert>
 #include <dxgidebug.h>
+#include <wrl.h>
 
 #include "externals/DirectXTex/DirectXTex.h"
 #include "externals/DirectXTex/d3dx12.h"
@@ -36,6 +40,16 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 
 
+#include "TextureManager.h"
+
+#include "DeltaTime.h"
+
+#include "Vector4.h"
+
+#include "ShaderCompiler.h"
+
+#include "Sprite.h"
+
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"dxguid.lib")
@@ -45,10 +59,6 @@ const int32_t kClientWidth = 1280;
 const int32_t kClientHeight = 720;
 const std::string kTitle = "CG2";
 
-struct Vector4
-{
-	float x, y, z, w;
-};
 
 struct VertexData
 {
@@ -82,9 +92,24 @@ struct DirectionalLight
 	Vector3 direction;
 	float intensity;
 };
-
-
+/*
+struct D3DResourceLeakChacker
+{
+	~D3DResourceLeakChacker()
+	{
+		Microsoft::WRL::ComPtr<IDXGIDebug1> debug;
+		if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug))))
+		{
+			debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+			debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
+			debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
+			debug->Release();
+		}
+	}
+};
+*/
 //Shaderコンパイル用関数
+/*
 IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile, IDxcUtils* dxcUtils, IDxcCompiler3* dxcCompiler, IDxcIncludeHandler* includeHandler)
 {
 	Log(ConvertString(std::format(L"Begine CompileShader,path:{},profile:{}\n", filePath, profile)));
@@ -136,7 +161,7 @@ IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile, ID
 	//実行用のバイナリを返却
 	return shaderBlob;
 }
-
+*/
 //Resource作成
 /*
 ID3D12Resource* CreateBufferResource(ID3D12Device* device, size_t sizeInBytes)
@@ -278,10 +303,14 @@ D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(ID3D12DescriptorHeap* descrip
 	return handleGPU;
 }
 */
+
+
+
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
-	
-	CoInitializeEx(0,COINIT_MULTITHREADED);
+	//D3DResourceLeakChacker leacCheck;// = D3DResourceLeakChacker::GetInstance();
+	assert(SUCCEEDED(CoInitializeEx(0,COINIT_MULTITHREADED)));
 
 	Window* mainWindow=nullptr;
 	mainWindow = new Window();
@@ -300,6 +329,18 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	DirectXCommon* dxCommon = nullptr;
 	dxCommon = new DirectXCommon();
 	dxCommon->Initialize(mainWindow);
+
+	//TextureManagerの初期化
+	TextureManager* textureManager = TextureManager::GetInstance();
+	textureManager->Initialize(dxCommon->GetDevice());
+	textureManager->SetDirectXCommon(dxCommon);
+	textureManager->SetsrvDescriptorHeap(dxCommon->GetsrvDescriptorHeap());
+
+	//Spriteの初期化
+	Sprite::StaticInitialize(dxCommon->GetDevice(),mainWindow->GetClientWidth(), mainWindow->GetClientHeight());
+
+	DeltaTime::GetInstance();
+
 	/*
 
 	//DXGIファクトリーの生成
@@ -669,7 +710,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	Material* materialData = nullptr;
 	materialResource->Map(0,nullptr,reinterpret_cast<void**>(&materialData));
 	materialData->color = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
-	materialData->enableLighting = true;
+	materialData->enableLighting = 2;
 	//WVP用のリソースを作る。Matrix4x4一つ分のサイズを用意
 	ID3D12Resource* wvpResource = DirectXCommon::CreateBufferResource(dxCommon->GetDevice(),sizeof(TransformationMatrix));
 	TransformationMatrix* wvpData = nullptr;
@@ -689,6 +730,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	//DSVHeapの先頭にDSVを作る
 	dxCommon->GetDevice()->CreateDepthStencilView(depthStencilResource,&dsvDesc,dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	*/
+
+	/*
+
 	//Sprite用のリソースを作る
 	ID3D12Resource* vertexResourceSprite = DirectXCommon::CreateBufferResource(dxCommon->GetDevice(),sizeof(VertexData)*6);
 	//頂点バッファビューを作る
@@ -736,8 +780,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	materialDataSprite->color = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
 	materialDataSprite->enableLighting = false;
 	
-
-	struct Transform transformSprite { {1.0f,1.0f,1.0f}, {0.0f,0.0f,0.0f}, {0.0f,0.0f,0.0f} };
+	*/
 
 	//ビューポート
 	D3D12_VIEWPORT viewport{};
@@ -808,8 +851,10 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	intermediateResource->Release();
 	intermediateResource2->Release();
 	*/
-	dxCommon->LoadTexture("Resources/uvChecker.png");
-	dxCommon->LoadTexture("Resources/monsterBall.png");
+	 
+	uint32_t uvCheckerTextureHandle	=TextureManager::LoadTexture("uvChecker.png");
+	uint32_t monsterTextureHandle = TextureManager::LoadTexture("monsterBall.png");
+
 
 	/*
 	//metadataを基にSRVの設定
@@ -846,9 +891,19 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	bool useMonsterBall = true;
 
+	//Spriteクラスを利用したSprite
+	struct Transform transformSprite { {1.0f, 1.0f, 1.0f}, { 0.0f,0.0f,0.0f }, { 320.0f,180.0f,0.0f } };
+	Vector4 spriteColor = {1.0f,1.0f,1.0f,1.0f};
+	Sprite* sprite = Sprite::Create(uvCheckerTextureHandle, Vector2{ 0.0f,0.0f }, Vector2{ 640.0f,360.0f }, spriteColor);
+
+	//Matrix4x4 spriteUVTransform = MakeIdentity4x4();
+	Vector3 uvTranslate = {0.0f,0.0f,0.0f};
+	Vector3 uvScale = {1.0f,1.0f,1.0f};
+	Vector3 uvRotate = {0.0f,0.0f,0.0f};
 
 	MSG msg{};
 	//メインループ
+	DeltaTime::GameLoopStart();
 	while (msg.message != WM_QUIT)
 	{
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -858,6 +913,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		}
 		else
 		{
+			DeltaTime::FrameStart();
 			//ゲームの処理
 
 			ImGui_ImplDX12_NewFrame();
@@ -865,6 +921,12 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			ImGui::NewFrame();
 
 			//更新処理開始
+
+			ImGui::Begin("fps");
+			ImGui::Text("%3.2f", ImGui::GetIO().Framerate);
+			ImGui::Text("%3.2f", ImGui::GetIO().Framerate * DeltaTime::GetDeltaTime());
+			ImGui::Text("%f", DeltaTime::GetDeltaTime());
+			ImGui::End();
 
 			//ImGui::ShowDemoWindow();
 
@@ -875,12 +937,16 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			ImGui::DragFloat3("translateSprite", &transformSprite.translate.x, 1.0f);
 			ImGui::End();*/
 
-			ImGui::Begin("Window");
+			ImGui::Begin("Sphere");
 			ImGui::SliderFloat3("CameraTranslate", &cameraTransform.translate.x, -10.0f, 10.0f,0 );
 			ImGui::Checkbox("useMonsterBall", &useMonsterBall);
 			ImGui::SliderFloat3("DirectionalLight", &directinalLightData->direction.x, -1.0f, 1.0f, 0);
+			ImGui::SliderFloat("Intensity", &directinalLightData->intensity, 0.0f, 1.0f, 0);
 			//ImGui::SliderFloat3("DirectionalLightColor", &directinalLightData->color.x, 0.0f, 1.0f, 0);
 			ImGui::ColorEdit4("DirectionalLightColor" ,&directinalLightData->color.x);
+			ImGui::RadioButton("LightingMode : NONE ", &materialData->enableLighting, 0);
+			ImGui::RadioButton("LightingMode : Lambert ", &materialData->enableLighting, 1);
+			ImGui::RadioButton("LightingMode : HalfLambert ", &materialData->enableLighting, 2);
 			ImGui::End();
 			directinalLightData->direction = Nomalize(directinalLightData->direction);
 
@@ -895,14 +961,25 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			wvpData->WVP = worldViewProjectionMatrix;
 			wvpData->World = worldMatrix;
 
+			ImGui::Begin("Sprite");
+			ImGui::DragFloat3("Scale", &transformSprite.scale.x, 0.1f, -10.0f, 10.0f);
+			ImGui::DragFloat3("Rotate", &transformSprite.rotate.x, 0.1f, -10.0f, 10.0f);
+			ImGui::SliderFloat2("Translate", &transformSprite.translate.x, -1000.0f,1000.0f);
+			ImGui::DragFloat2("UVTranslate", &uvTranslate.x, 0.01f, -10.0f, 10.0f);
+			ImGui::DragFloat2("UVScale", &uvScale.x, 0.01f, -10.0f, 10.0f);
+			ImGui::SliderAngle("UVRotate", &uvRotate.z);
+			ImGui::End();
+			
+
 			//Sprite用のworldviewProjection
 			Matrix4x4 worldMatrixSprite = MakeAffineMatrix(transformSprite.scale,transformSprite.rotate,transformSprite.translate);
 			Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
 			Matrix4x4 projectionMatrixSprite = MakeOrthographicMatrix(0.0f,0.0f,float(kClientWidth),float(kClientHeight),0.0f,100.0f);
 			Matrix4x4 worldViewProjectionMatrixSprite = Multiply(worldMatrixSprite,Multiply(viewMatrixSprite,projectionMatrixSprite));
-			transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
-			transformationMatrixDataSprite->World = worldMatrixSprite;
+			Matrix4x4 uvTransformSprite = MakeAffineMatrix(uvScale,uvRotate,uvTranslate);
 
+			sprite->SetWVP(worldViewProjectionMatrixSprite);
+			sprite->SetUVTransform(uvTransformSprite);
 			//更新処理終了
 			 
 			//画面の初期化
@@ -928,8 +1005,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			commandList->ClearRenderTargetView(rtvHandles[backBufferIndex],clearColor,0,nullptr);
 			*/
 			/*
-			commandList->RSSetViewports(1,&viewport);
-			commandList->RSSetScissorRects(1,&scissorRect);
+			
 			commandList->SetGraphicsRootSignature(rootSignature);
 			commandList->SetPipelineState(graphicsPipelineState);
 			commandList->IASetVertexBuffers(0,1,&vertexBufferView);
@@ -948,15 +1024,42 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			//SRVのDescriptorTableの先頭を設定。
 			commandList->SetGraphicsRootDescriptorTable(2,useMonsterBall ? textureSrvHandleGPU2 : textureSrvHandleGPU);
 
-
-			ImGui::Render();
 			*/
 
 
 			dxCommon->PreDraw();
 			
 			//描画
-			
+			ID3D12GraphicsCommandList* commandList = dxCommon->GetCommandList();
+
+
+			commandList->SetGraphicsRootSignature(rootSignature);
+			commandList->SetPipelineState(graphicsPipelineState);
+			commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			//マテリアルCBufferの場所を設定
+			commandList->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
+			//wvp用のCBufferの場所を設定
+			commandList->SetGraphicsRootConstantBufferView(1, wvpResource->GetGPUVirtualAddress());
+			//Lighting用のリソースの場所を設定
+			commandList->SetGraphicsRootConstantBufferView(3, directinalLightResource->GetGPUVirtualAddress());
+
+			ID3D12DescriptorHeap* descriptorHeaps[] = { dxCommon->GetsrvDescriptorHeap()};
+			commandList->SetDescriptorHeaps(1, descriptorHeaps);
+
+			//SRVのDescriptorTableの先頭を設定。
+			//commandList->SetGraphicsRootDescriptorTable(2, useMonsterBall ? textureSrvHandleGPU2 : textureSrvHandleGPU);
+			TextureManager::GetInstance()->SetGraphicsRootDescriptorTable(2, useMonsterBall ? monsterTextureHandle : uvCheckerTextureHandle);
+
+			commandList->DrawInstanced(vertexCount, 1, 0, 0);
+
+
+			Sprite::PreDraw(dxCommon->GetCommandList());
+
+			sprite->Draw();
+
+			Sprite::PostDraw();
 
 			dxCommon->PostDraw();
 
@@ -1005,6 +1108,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			hr = commandList->Reset(commandAllocator,nullptr);
 			assert(SUCCEEDED(hr));
 			*/
+			//Sleep(1000 * DWORD(1.0f / 60.0f));
+			//Sleep(1000);
 		}
 	}
 
@@ -1050,7 +1155,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	vertexShaderBlob->Release();
 
 	materialResource->Release();
-	materialResourceSprite->Release();
+	//materialResourceSprite->Release();
 
 	wvpResource->Release();
 
@@ -1059,11 +1164,11 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	//depthStencilResource->Release();
 
-	vertexResourceSprite->Release();
-	transformationMatrixResourceSprite->Release();
+	//vertexResourceSprite->Release();
+	//transformationMatrixResourceSprite->Release();
 
 	//リソースリークチェック
-	IDXGIDebug1* debug;
+	/*IDXGIDebug1* debug;
 	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug))))
 	{
 		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
@@ -1071,7 +1176,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
 		debug->Release();
 	}
-
+	*/
 	CoUninitialize();
 
 	return 0;

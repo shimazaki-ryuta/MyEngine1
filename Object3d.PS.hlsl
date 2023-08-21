@@ -17,12 +17,16 @@ struct PixelShaderOutput {
 PixelShaderOutput main(VertexShaderOutput input){
 	float32_t4 textureColor = gTexture.Sample(gSampler,input.texcoord);
 	PixelShaderOutput output;
-	if (gMaterial.enableLighting != 0)
+	if (gMaterial.enableLighting == 2)
 	{
 		float NdotL = dot(normalize(input.normal),-gDirectionalLight.direction);
 		float cos = pow(NdotL * 0.5f + 0.5f,2.0f);
 		output.color = gMaterial.color * textureColor * gDirectionalLight.color * cos * gDirectionalLight.intensity;
-	}else{
+	}else if(gMaterial.enableLighting == 1){
+		float cos = saturate(dot(normalize(input.normal),-gDirectionalLight.direction));
+		output.color = gMaterial.color * textureColor * gDirectionalLight.color * cos * gDirectionalLight.intensity;
+	}
+	else{
 		output.color = gMaterial.color * textureColor;
 	}
 	//output.color = gMaterial.color * textureColor;
