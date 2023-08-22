@@ -50,6 +50,9 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd,UINT msg,
 
 #include "Sprite.h"
 
+//入力
+#include "Input.h"
+
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"dxguid.lib")
@@ -315,7 +318,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	Window* mainWindow=nullptr;
 	mainWindow = new Window();
 	mainWindow->CreateGameWindow(kTitle,kClientWidth,kClientHeight);
-
+	
 
 #ifdef _DEBUG
 	ID3D12Debug1* debugController = nullptr;
@@ -329,6 +332,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	DirectXCommon* dxCommon = nullptr;
 	dxCommon = new DirectXCommon();
 	dxCommon->Initialize(mainWindow);
+
+
+	Input::GetInstance()->Initialize(mainWindow->GetHwnd());
 
 	//TextureManagerの初期化
 	TextureManager* textureManager = TextureManager::GetInstance();
@@ -913,6 +919,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		}
 		else
 		{
+			Input::GetInstance()->KeyboardUpdate();
+
 			DeltaTime::FrameStart();
 			//ゲームの処理
 
@@ -970,7 +978,18 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			ImGui::SliderAngle("UVRotate", &uvRotate.z);
 			ImGui::End();
 			
-
+			if (Input::GetKey(DIK_RIGHT))
+			{
+				transformSprite.translate.x++;
+			}
+			if (Input::GetKeyDown(DIK_RIGHT))
+			{
+				transformSprite.translate.y+=10;
+			}
+			if (Input::GetKeyUp(DIK_RIGHT))
+			{
+				transformSprite.translate.x++;
+			}
 			//Sprite用のworldviewProjection
 			Matrix4x4 worldMatrixSprite = MakeAffineMatrix(transformSprite.scale,transformSprite.rotate,transformSprite.translate);
 			Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
