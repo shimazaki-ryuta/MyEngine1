@@ -74,6 +74,8 @@ struct Material
 {
 	Vector4 color;
 	int32_t enableLighting;
+	float padding[3];
+	Matrix4x4 uvTransform;
 };
 
 struct Transform
@@ -717,6 +719,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	materialResource->Map(0,nullptr,reinterpret_cast<void**>(&materialData));
 	materialData->color = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
 	materialData->enableLighting = 2;
+	materialData->uvTransform = MakeIdentity4x4();
 	//WVP用のリソースを作る。Matrix4x4一つ分のサイズを用意
 	ID3D12Resource* wvpResource = DirectXCommon::CreateBufferResource(dxCommon->GetDevice(),sizeof(TransformationMatrix));
 	TransformationMatrix* wvpData = nullptr;
@@ -724,70 +727,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	wvpData->WVP = MakeIdentity4x4();
 	wvpData->World = MakeIdentity4x4();
 
-	//DepthStencilTextureをウィンドウのサイズで作成
-	/*D3D12Resource* depthStencilResource = CreateDepthStencilTextureResource(dxCommon->GetDevice(), kClientWidth, kClientHeight);
-
-	//DSV用のヒープでディスクリプタの数は1,DSVはShader内で触るものではないので.ShaderVisibleはfalse
-	ID3D12DescriptorHeap* dsvDescriptorHeap = CreateDescriptorHeap(dxCommon->GetDevice(),D3D12_DESCRIPTOR_HEAP_TYPE_DSV,1,false);
-	//DSVの設定
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
-	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	//DSVHeapの先頭にDSVを作る
-	dxCommon->GetDevice()->CreateDepthStencilView(depthStencilResource,&dsvDesc,dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-	*/
-
-	/*
-
-	//Sprite用のリソースを作る
-	ID3D12Resource* vertexResourceSprite = DirectXCommon::CreateBufferResource(dxCommon->GetDevice(),sizeof(VertexData)*6);
-	//頂点バッファビューを作る
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSprite{};
-	vertexBufferViewSprite.BufferLocation = vertexResourceSprite->GetGPUVirtualAddress();
-	//使用するリソースのサイズ
-	vertexBufferViewSprite.SizeInBytes = sizeof(VertexData) * 6;
-	//1頂点当たりのサイズ
-	vertexBufferViewSprite.StrideInBytes = sizeof(VertexData);
 	
-	VertexData* vertexDataSprite = nullptr;
-	vertexResourceSprite->Map(0,nullptr,reinterpret_cast<void**>(&vertexDataSprite));
-	//1枚目
-	vertexDataSprite[0].position = {0.0f,360.0f,0.0f,1.0f};
-	vertexDataSprite[0].texcoord = {0.0f,1.0f};
-	vertexDataSprite[0].normal = {0.0f,0.0f,-1.0f};
-	vertexDataSprite[1].position = { 0.0f,0.0f,0.0f,1.0f };
-	vertexDataSprite[1].texcoord = { 0.0f,0.0f };
-	vertexDataSprite[1].normal = { 0.0f,0.0f,-1.0f };
-	vertexDataSprite[2].position = { 640.0f,360.0f,0.0f,1.0f };
-	vertexDataSprite[2].texcoord = { 1.0f,1.0f };
-	vertexDataSprite[2].normal = { 0.0f,0.0f,-1.0f };
-	//2枚目
-	vertexDataSprite[3].position = { 0.0f,0.0f,0.0f,1.0f };
-	vertexDataSprite[3].texcoord = { 0.0f,0.0f };
-	vertexDataSprite[3].normal = { 0.0f,0.0f,-1.0f };
-	vertexDataSprite[4].position = { 640.0f,0.0f,0.0f,1.0f };
-	vertexDataSprite[4].texcoord = { 1.0f,0.0f };
-	vertexDataSprite[4].normal = { 0.0f,0.0f,-1.0f };
-	vertexDataSprite[5].position = { 640.0f,360.0f,0.0f,1.0f };
-	vertexDataSprite[5].texcoord = { 1.0f,1.0f };
-	vertexDataSprite[5].normal = { 0.0f,0.0f,-1.0f };
-	
-	//Sprite用のTransformMatrix用リソースを作る
-	ID3D12Resource* transformationMatrixResourceSprite = DirectXCommon::CreateBufferResource(dxCommon->GetDevice(),sizeof(TransformationMatrix));
-	TransformationMatrix* transformationMatrixDataSprite = nullptr;
-	transformationMatrixResourceSprite->Map(0,nullptr,reinterpret_cast<void**>(&transformationMatrixDataSprite));
-	transformationMatrixDataSprite->WVP = MakeIdentity4x4();
-	transformationMatrixDataSprite->World = MakeIdentity4x4();
-
-	//スプライト用のマテリアルリソースを作成
-	ID3D12Resource* materialResourceSprite = DirectXCommon::CreateBufferResource(dxCommon->GetDevice(), sizeof(Material));
-	Material* materialDataSprite = nullptr;
-	materialResourceSprite->Map(0, nullptr, reinterpret_cast<void**>(&materialDataSprite));
-	materialDataSprite->color = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
-	materialDataSprite->enableLighting = false;
-	
-	*/
-
 	//ビューポート
 	D3D12_VIEWPORT viewport{};
 	viewport.Width = kClientWidth;
