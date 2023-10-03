@@ -10,6 +10,12 @@
 class Sprite
 {
 public:
+
+	enum class BlendMode
+	{
+		Normal
+	};
+
 	struct VertexData
 	{
 		Vector4 position;
@@ -57,6 +63,7 @@ public:
 
 	inline void SetWVP(const Matrix4x4& wvp) { wvp_ = wvp; };
 
+	inline void SetColor(const Vector4& color) { materialData_->color = color; };
 
 	inline void SetUVTransform(const Matrix4x4& uvTransform) { uvTransform_ = uvTransform; };
 

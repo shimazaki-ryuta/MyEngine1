@@ -976,6 +976,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			ImGui::DragFloat2("UVTranslate", &uvTranslate.x, 0.01f, -10.0f, 10.0f);
 			ImGui::DragFloat2("UVScale", &uvScale.x, 0.01f, -10.0f, 10.0f);
 			ImGui::SliderAngle("UVRotate", &uvRotate.z);
+			ImGui::ColorEdit4("Color", &spriteColor.x);
 			ImGui::End();
 			
 			if (Input::GetKey(DIK_RIGHT))
@@ -999,6 +1000,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 			sprite->SetWVP(worldViewProjectionMatrixSprite);
 			sprite->SetUVTransform(uvTransformSprite);
+			sprite->SetColor(spriteColor);
+
 			//更新処理終了
 			 
 			//画面の初期化
