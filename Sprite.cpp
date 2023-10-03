@@ -6,7 +6,8 @@ ID3D12Device* Sprite::sDevice = nullptr;
 UINT Sprite::sDescriptorHandleIncrementSize;
 ID3D12GraphicsCommandList* Sprite::sCommandList = nullptr;
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Sprite::sRootSignature;
-Microsoft::WRL::ComPtr<ID3D12PipelineState> Sprite::sPipelineState;
+//Microsoft::WRL::ComPtr<ID3D12PipelineState> Sprite::sPipelineState;
+std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, size_t(Sprite::BlendMode::CountofBlendMode)> Sprite::sPipelineStates;
 
 void Sprite::StaticInitialize(
 	ID3D12Device* device, int window_width, int window_height, const std::wstring& directoryPath)
@@ -108,17 +109,41 @@ void Sprite::StaticInitialize(
 	inputLayoutDesc.NumElements = _countof(inputElementDescs);
 
 	//BlendDtateの設定
-	D3D12_BLEND_DESC blendDesc{};
+	D3D12_BLEND_DESC blendDesc[size_t(BlendMode::CountofBlendMode)]{};
 	//共通
-	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-	blendDesc.RenderTarget[0].BlendEnable = TRUE;
-	blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
-	blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	for (int index = size_t(BlendMode::Normal);index < size_t(BlendMode::CountofBlendMode);index++)
+	{
+		blendDesc[index].RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+		blendDesc[index].RenderTarget[0].BlendEnable = TRUE;
+		blendDesc[index].RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+		blendDesc[index].RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+		blendDesc[index].RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+		blendDesc[index].RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+		blendDesc[index].RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+		blendDesc[index].RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	}
 	//blendmode固有
-	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
-	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc[size_t(BlendMode::None)].RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	
+	blendDesc[size_t(BlendMode::Normal)].RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	blendDesc[size_t(BlendMode::Normal)].RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	blendDesc[size_t(BlendMode::Normal)].RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+
+	blendDesc[size_t(BlendMode::Add)].RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	blendDesc[size_t(BlendMode::Add)].RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	blendDesc[size_t(BlendMode::Add)].RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+
+	blendDesc[size_t(BlendMode::Subtract)].RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	blendDesc[size_t(BlendMode::Subtract)].RenderTarget[0].BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
+	blendDesc[size_t(BlendMode::Subtract)].RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+
+	blendDesc[size_t(BlendMode::Multiply)].RenderTarget[0].SrcBlend = D3D12_BLEND_ZERO;
+	blendDesc[size_t(BlendMode::Multiply)].RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	blendDesc[size_t(BlendMode::Multiply)].RenderTarget[0].DestBlend = D3D12_BLEND_SRC_COLOR;
+
+	blendDesc[size_t(BlendMode::Screen)].RenderTarget[0].SrcBlend = D3D12_BLEND_INV_DEST_COLOR;
+	blendDesc[size_t(BlendMode::Screen)].RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	blendDesc[size_t(BlendMode::Screen)].RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 
 
 	//RasterizerStateの設定
@@ -127,26 +152,29 @@ void Sprite::StaticInitialize(
 	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 
 	//PSOの生成
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.pRootSignature = sRootSignature.Get();
-	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc;
-	graphicsPipelineStateDesc.VS = { vertexShaderBlob->GetBufferPointer(),vertexShaderBlob->GetBufferSize() };
-	graphicsPipelineStateDesc.PS = { pixelShaderBlob->GetBufferPointer(),pixelShaderBlob->GetBufferSize() };
-	graphicsPipelineStateDesc.BlendState = blendDesc;
-	graphicsPipelineStateDesc.RasterizerState = rasterizerDesc;
-	//書き込むRTVの情報
-	graphicsPipelineStateDesc.NumRenderTargets = 1;
-	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-	//利用するトポロジのタイプ、三角形
-	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	//どのように画面に色を打ち込むかの設定
-	graphicsPipelineStateDesc.SampleDesc.Count = 1;
-	graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+	for (int index = size_t(BlendMode::None); index < size_t(BlendMode::CountofBlendMode); index++)
+	{
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
+		graphicsPipelineStateDesc.pRootSignature = sRootSignature.Get();
+		graphicsPipelineStateDesc.InputLayout = inputLayoutDesc;
+		graphicsPipelineStateDesc.VS = { vertexShaderBlob->GetBufferPointer(),vertexShaderBlob->GetBufferSize() };
+		graphicsPipelineStateDesc.PS = { pixelShaderBlob->GetBufferPointer(),pixelShaderBlob->GetBufferSize() };
+		graphicsPipelineStateDesc.BlendState = blendDesc[index];
+		graphicsPipelineStateDesc.RasterizerState = rasterizerDesc;
+		//書き込むRTVの情報
+		graphicsPipelineStateDesc.NumRenderTargets = 1;
+		graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+		//利用するトポロジのタイプ、三角形
+		graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		//どのように画面に色を打ち込むかの設定
+		graphicsPipelineStateDesc.SampleDesc.Count = 1;
+		graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 
-	//実際に生成
-	//ID3D12PipelineState* graphicsPipelineState = nullptr;
-	hr = sDevice->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&sPipelineState));
-	assert(SUCCEEDED(hr));
+		//実際に生成
+		//ID3D12PipelineState* graphicsPipelineState = nullptr;
+		hr = sDevice->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&sPipelineStates[index]));
+		assert(SUCCEEDED(hr));
+	}
 }
 
 void Sprite::PreDraw(ID3D12GraphicsCommandList* commandList) {
@@ -156,8 +184,6 @@ void Sprite::PreDraw(ID3D12GraphicsCommandList* commandList) {
 	// コマンドリストをセット
 	sCommandList = commandList;
 
-	// パイプラインステートの設定
-	sCommandList->SetPipelineState(sPipelineState.Get());
 	// ルートシグネチャの設定
 	sCommandList->SetGraphicsRootSignature(sRootSignature.Get());
 	sCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
@@ -176,7 +202,7 @@ Sprite* Sprite::Create(uint32_t textureHandle, Vector2 position, Vector2 size, V
 	sprite->position_ = position;
 	sprite->size_ = size;
 	sprite->color_ = color;
-
+	sprite->blendMode_ = BlendMode::Normal;
 	sprite->Initialize();
 
 	return sprite;
@@ -241,6 +267,9 @@ void Sprite::Initialize()
 
 void Sprite::Draw()
 {
+	// パイプラインステートの設定
+	sCommandList->SetPipelineState(sPipelineStates[size_t(blendMode_)].Get());
+
 	Matrix4x4 worldMatrixSprite = MakeAffineMatrix(Vector3{ 0,0,0 }, Vector3{ 0,0,0 }, Vector3{ position_.x,position_.y,0.0f });
 	Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
 	Matrix4x4 projectionMatrixSprite = MakeOrthographicMatrix(0.0f, 0.0f, float(1280), float(720), 0.0f, 100.0f);

@@ -1001,7 +1001,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			sprite->SetWVP(worldViewProjectionMatrixSprite);
 			sprite->SetUVTransform(uvTransformSprite);
 			sprite->SetColor(spriteColor);
-
+			sprite->SetBlendMode(Sprite::BlendMode::Add);
 			//更新処理終了
 			 
 			//画面の初期化

@@ -13,7 +13,13 @@ public:
 
 	enum class BlendMode
 	{
-		Normal
+		None,
+		Normal,
+		Add,
+		Subtract,
+		Multiply,
+		Screen,
+		CountofBlendMode, //PSO作成に使う値、使用出来ない
 	};
 
 	struct VertexData
@@ -44,8 +50,10 @@ public:
 	// ルートシグネチャ
 	static Microsoft::WRL::ComPtr<ID3D12RootSignature> sRootSignature;
 	// パイプラインステートオブジェクト
-	static Microsoft::WRL::ComPtr<ID3D12PipelineState> sPipelineState;
+	//static Microsoft::WRL::ComPtr<ID3D12PipelineState> sPipelineState;
 	
+	static std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>,size_t(BlendMode::CountofBlendMode)> sPipelineStates;
+
 	static void StaticInitialize(
 		ID3D12Device* device, int window_width, int window_height,
 		const std::wstring& directoryPath = L"Resources/");
@@ -67,7 +75,7 @@ public:
 
 	inline void SetUVTransform(const Matrix4x4& uvTransform) { uvTransform_ = uvTransform; };
 
-
+	inline void SetBlendMode(const BlendMode& blendmode) { blendMode_ = blendmode; };
 
 private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
@@ -88,6 +96,8 @@ private:
 	Matrix4x4 uvTransform_;
 
 	Matrix4x4 wvp_;
+
+	BlendMode blendMode_;
 
 	D3D12_RESOURCE_DESC resourceDesc_;
 };
